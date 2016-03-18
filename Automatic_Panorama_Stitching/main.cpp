@@ -12,7 +12,10 @@ using namespace cv;
 using namespace std;
 
 //Show Images
-void show_image(vector <Mat>, int); 
+void show_image(vector <Mat>, int, String);
+//Faeture Detection
+void detect_features(vector<vector <KeyPoint>>&, vector <Mat>&, vector <Mat>);
+
 
 int main(int argc, char** argv)
 {
@@ -38,45 +41,19 @@ int main(int argc, char** argv)
 		cout << "could not open or find the image" << std::endl;
 		return -1;
 	}
-	show_image(input_img, CV_8UC3);
+	show_image(input_img, CV_8UC3, "Input Images");
 
-	//BGR to Gray
-	vector <Mat> img;
-	for (int i = 0; i < input_img.size(); i++)
-	{
-		Mat tmpimg;
-		cvtColor(input_img[i], tmpimg, CV_BGR2GRAY);
-		img.push_back(tmpimg);
-	}
-	show_image(img, CV_8UC1);
-
-	//-- Step 1: Detect the keypoints using SURF Detector
-	int minHessian = 400;
-
-	SiftFeatureDetector detector(minHessian);
-
-	std::vector<KeyPoint> keypoints_1, keypoints_2;
-
-	detector.detect(img[0], keypoints_1);
-	detector.detect(img[1], keypoints_2);
-
-	//-- Draw keypoints
-	Mat img_keypoints_1; Mat img_keypoints_2;
-
-	drawKeypoints(img[0], keypoints_1, img_keypoints_1, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
-	drawKeypoints(img[1], keypoints_2, img_keypoints_2, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
-
-	//-- Show detected (drawn) keypoints
-	imshow("Keypoints 1", img_keypoints_1);
-	imshow("Keypoints 2", img_keypoints_2);
-
-	waitKey(0);
+	//Feature Detection
+	vector <vector <KeyPoint>> keypoints;
+	vector <Mat> img_keypoints;
+	detect_features(keypoints, img_keypoints, input_img);
+	show_image(img_keypoints, CV_8UC3, "Keypoints");
 
 	return 0;
 }
 
 //Show Images
-void show_image(vector <Mat> tempImg, int Type)
+void show_image(vector <Mat> tempImg, int Type, String str)
 {
 	//Resize to fit screen
 	for (int i = 0; i < tempImg.size(); i++)
@@ -104,8 +81,42 @@ void show_image(vector <Mat> tempImg, int Type)
 		}
 	}
 	
-	namedWindow("Input Images", WINDOW_AUTOSIZE);
-	imshow("Input Images", dst);
+	namedWindow(str, WINDOW_AUTOSIZE);
+	imshow(str, dst);
 
 	waitKey(0); // Wait for a keystroke in the window
+}
+
+//Faeture Detection
+void detect_features(vector<vector <KeyPoint>> &keypoints, vector <Mat> &img_keypoints, vector <Mat> input_img)
+{
+	//Detect the keypoints using SIFT Detector
+	int minHessian = 400;
+
+	SiftFeatureDetector detector(minHessian);
+
+	//BGR to Gray
+	vector <Mat> img;
+	for (int i = 0; i < input_img.size(); i++)
+	{
+		Mat tmpimg;
+		cvtColor(input_img[i], tmpimg, CV_BGR2GRAY);
+		img.push_back(tmpimg);
+	}
+
+	for (int i = 0; i < img.size(); i++)
+	{
+		vector <KeyPoint> tmp;
+		detector.detect(img[i], tmp);
+		keypoints.push_back(tmp);
+	}
+
+	//Draw keypoints
+	for (int i = 0; i < img.size(); i++)
+	{
+		Mat tmp;
+		drawKeypoints(img[i], keypoints[i], tmp, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		img_keypoints.push_back(tmp);
+	}
+
 }
