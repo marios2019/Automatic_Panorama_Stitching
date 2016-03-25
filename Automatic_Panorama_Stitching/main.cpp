@@ -6,6 +6,7 @@
 #include "opencv2/nonfree/nonfree.hpp"
 #include "opencv2/opencv_modules.hpp"
 #include <iostream>
+#include <algorithm> 
 #include <fstream>
 #include <string>
 
@@ -47,6 +48,8 @@ int main(int argc, char** argv)
 	show_image(input_img, CV_8UC3, "Input Images");
 
 	// Feature Detection
+	//pt: array of keypoint coordinates, size: keypoint diameter, angle: keypoint orientation, 
+	//responce: keypoint strength, octave:	pyramid octave in which the keypoint has been detected
 	vector <vector <KeyPoint>> keypoints;
 	vector <Mat> img_keypoints;
 	detect_features(keypoints, img_keypoints, input_img);
@@ -64,14 +67,16 @@ int main(int argc, char** argv)
 	// Feature description and FLANN matching
 	vector <vector <DMatch>> matches, good_matches;
 	for (int i = 0; i < (img.size() - 1); i++)
-		for (int j = i+1; j < img.size(); j++)
+	{
+		for (int j = i + 1; j < img.size(); j++)
 		{
 			vector <DMatch> tmp_matches, tmp_good_matches;
 			describe_match_features(keypoints[i], keypoints[j], img[i], img[j], tmp_matches, tmp_good_matches, i, j);
 			matches.push_back(tmp_matches);
 			good_matches.push_back(tmp_good_matches);
 		}
-
+	}
+    
 	return 0;
 }
 
@@ -146,7 +151,7 @@ void detect_features(vector<vector <KeyPoint>> &keypoints, vector <Mat> &img_key
 }
 
 // Feature Description and Matching
-void describe_match_features(vector <KeyPoint> keypoints_1, vector <KeyPoint> keypoints_2, Mat img_1, Mat img_2, vector <DMatch> &matches, vector <DMatch> &good_matches, int i, int j)
+void describe_match_features(vector <KeyPoint> keypoints_1, vector <KeyPoint> keypoints_2, Mat img_1, Mat img_2, vector <DMatch> &matches, vector <DMatch> &good_matches, int x, int y)
 {
 
 	// Calculate descriptors (feature vectors)
@@ -161,40 +166,72 @@ void describe_match_features(vector <KeyPoint> keypoints_1, vector <KeyPoint> ke
 	FlannBasedMatcher matcher;
 	matcher.match(descriptors_1, descriptors_2, matches);
 
-	double max_dist = 0; double min_dist = 100;
-
-	// Quick calculation of max and min distances between keypoints
-	for (int i = 0; i < descriptors_1.rows; i++)
+	// Calculation of minimum distance between keypoints
+	vector <double> dist;
+	for (int i = 0; i < matches.size(); i++)
 	{
-		double dist = matches[i].distance;
-		if (dist < min_dist) min_dist = dist;
-		if (dist > max_dist) max_dist = dist;
+		dist.push_back(matches[i].distance);
 	}
+	sort(dist.begin(), dist.end());
+	double min_dist = 100;
+	if (min_dist > dist.front()) min_dist = dist.front();
 
-	// Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
-	// or a small arbitary value ( 0.02 ) in the event that min_dist is very
-	// small)
-	// PS.- radiusMatch can also be used here.
+	////Calculation of k = 4 nearest neighbour and minimum distance between keypoints
+	//vector <double> k_nn;
+	//double min_dist;
+	//if (descriptors_1.rows <= 4)
+	//{
+	//	for (int i = 0; i < descriptors_1.rows; i++)
+	//	{
+	//		k_nn.push_back(matches[i].distance);
+	//	}
+	//	sort(k_nn.begin(), k_nn.end());
+	//	min_dist = k_nn.back();
+	//}
+	//else
+	//{
+	//	for (int i = 0; i < 4; i++)
+	//	{
+	//		k_nn.push_back(matches[i].distance);
+	//	}
+	//	sort(k_nn.begin(), k_nn.end());
+
+	//	for (int i = 4; i < descriptors_1.rows; i++)
+	//	{
+	//		if (matches[i].distance < k_nn.back())
+	//		{
+	//			k_nn.pop_back();
+	//			k_nn.push_back(matches[i].distance);
+	//			sort(k_nn.begin(), k_nn.end());
+	//		}
+	//	}
+
+	//	min_dist = k_nn.back();
+	//}
+
+	// Draw only "good" matches
 	for (int i = 0; i < descriptors_1.rows; i++)
 	{
-		if (matches[i].distance <= max(2 * min_dist, 0.02))
+		if (matches[i].distance <= max(2*min_dist, 0.02))
 		{
 			good_matches.push_back(matches[i]);
 		}
 	}
 
-	//// Draw only "good" matches
+	// Draw only "good" matches
 	Mat img_matches;
 	drawMatches(img_1, keypoints_1, img_2, keypoints_2,
 		good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
 		vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
 	// Store img_matches
-	String str = "images/";
-	str.append("Keypoints_matched_");
-	str.append(to_string(i+1));
+	String str = "images/SIFT_matches/";
+	str.append("Images_");
+	str.append(to_string(x+1));
 	str.append("-");
-	str.append(to_string(j+1));
+	str.append(to_string(y+1));
+	str.append("_Keypoints_matched_");
+	str.append(to_string(good_matches.size()));
 	str.append(".jpg");
 	imwrite(str, img_matches);
 
