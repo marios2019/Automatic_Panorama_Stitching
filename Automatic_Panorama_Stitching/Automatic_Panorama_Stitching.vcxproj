@@ -153,7 +153,13 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="image.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="match.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="image.h" />
+    <ClInclude Include="match.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
