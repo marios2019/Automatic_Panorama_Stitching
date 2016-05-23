@@ -65,3 +65,15 @@ int Match::getImgIdx2() const
 {
 	return imgIdx2;
 }
+
+// Change img_matches
+void Match::setImg_matches(Mat img_matchesVal)
+{
+	img_matches = img_matchesVal.clone();
+}
+
+// Returns the img_matches
+Mat Match::getImg_matches() const
+{
+	return img_matches;
+}

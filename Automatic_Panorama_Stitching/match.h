@@ -23,10 +23,14 @@ public:
 	void setImgIdx2(int); // Change imgIdx2
 	int getImgIdx2() const; // Returns the imgIdx
 
+	void setImg_matches(Mat); // Change img_matches
+	Mat getImg_matches() const; // Returns the img_matches
+
 private:
 
 	vector <DMatch> matches; // Vector which contains image keypoint matches
 	vector <DMatch> good_matches; // Vector which contains image keypoint matches within a desirable distance
 	int imgIdx1; // index pointing to query image
 	int	imgIdx2; // index pointing to train image
+	Mat img_matches; // image cointaining keypoints matchesn from imgIdx1 to imgIdx2
 };

@@ -25,14 +25,14 @@ public:
 	void setImg_Keypoint(Mat); // Change img_keypoint
 	Mat getImg_Keypoint() const; // Returns the img_keypoint
 
-	void setDescriptors(Mat); // Change descriptor
-	Mat getDescriptors() const; // Returns the descriptor
+	void setDescriptors(Mat); // Change descriptors
+	Mat getDescriptors() const; // Returns the descriptors
 
-	void setIndex(int); // Change index
-	vector <int> getIndex() const; // Returns the index
+	void setIndex(vector <int>); // Change index
+	vector <vector <int>> getIndex() const; // Returns the index
+	vector <int> getIndex(int) const; // Returns the one rwo of index
 
 	void print_img(Mat) const; // Print colour image in a window
-
 
 private:
 
@@ -46,7 +46,7 @@ private:
 	vector <KeyPoint> keypoints; // keypoints extracted by SIFT algorithm
 	Mat img_keypoint; // image with keypoints drawn
 	Mat descriptors; // descriptor
-	vector <int> index; //contains indexes to the 6 best matching images to the current image
+	vector <vector <int>> index; //contains indexes to the 6 best matching images to the current image
 
 	static int idGen; // image ID generator
 };

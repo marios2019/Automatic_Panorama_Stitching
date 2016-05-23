@@ -59,7 +59,9 @@ int main(int argc, char** argv)
 	detect_features(images);
 	show_image(images, CV_8UC3, "Keypoints");
 
-	//// Feature description and FLANN matching
+	// Feature description and FLANN matching
+	vector <Match> matches;
+	describe_match_features(images, matches);
 	//vector <vector <DMatch>> matches, good_matches;
 	//for (int i = 0; i < (images.size() - 1); i++)
 	//{
@@ -160,68 +162,79 @@ void detect_features(vector <Image>& images)
 
 }
 
-// Feature Description and Matching
-//void describe_match_features(vector <Image> &images, vector <Match> &matches)
-//{
-//
-//	// Calculate descriptors (feature vectors)
-//	SiftDescriptorExtractor extractor;
-//
-//	for (int i = 0; i < images.size(); i++)
-//	{
-//		Mat tmp_descriptors;
-//		extractor.compute(images[i].getImg_gray() , images[i].getKeypoints(), tmp_descriptors);
-//		images[i].setDescriptors(tmp_descriptors);
-//	}
-//	
-//	// Matching descriptor vectors using FLANN matcher
-//	FlannBasedMatcher matcher;
-//	for (int i = 0; i < (images.size() - 1); i++)
-//	{
-//		for (int j = i + 1; j < images.size(); j++)
-//		{
-//			vector <DMatch> tmp_matches;
-//			matcher.match(images[i].getDescriptors(), images[j].getDescriptors(), tmp_matches);
-//			Match tmp(tmp_matches, i, j);
-//			matches.push_back(tmp);
-//		}
-//	}
-//
-//	// Calculation of minimum distance between keypoints
-//	vector <double> dist;
-//	for (int i = 0; i < matches.size(); i++)
-//	{
-//		vector <DMatch> tmp_matches = matches[i].getMatches();
-//		dist.push_back(tmp_matches[i].distance);
-//	}
-//	sort(dist.begin(), dist.end());
-//	double min_dist = 100;
-//	if (min_dist > dist.front()) min_dist = dist.front();
-//
-//	// Draw only "good" matches
-//	for (int i = 0; i < descriptors_1.rows; i++)
-//	{
-//		if (matches[i].distance <= max(2*min_dist, 0.02))
-//		{
-//			good_matches.push_back(matches[i]);
-//		}
-//	}
-//
-//	// Draw only "good" matches
-//	Mat img_matches;
-//	drawMatches(img_1, keypoints_1, img_2, keypoints_2,
-//		good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-//		vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-//
-//	// Store img_matches
-//	String str = "images/SIFT_matches2/";
-//	str.append("Images_");
-//	str.append(to_string(x+1));
-//	str.append("-");
-//	str.append(to_string(y+1));
-//	str.append("_Keypoints_matched_");
-//	str.append(to_string(good_matches.size()));
-//	str.append(".jpg");
-//	imwrite(str, img_matches);
-//
-//}
+//Feature Description and Matching
+void describe_match_features(vector <Image> &images, vector <Match> &matches)
+{
+
+	// Calculate descriptors (feature vectors)
+	SiftDescriptorExtractor extractor;
+
+	for (int i = 0; i < images.size(); i++)
+	{
+		Mat tmp_descriptors;
+		extractor.compute(images[i].getImg_gray() , images[i].getKeypoints(), tmp_descriptors);
+		images[i].setDescriptors(tmp_descriptors);
+	}
+	
+	// Matching descriptor vectors using FLANN matcher
+	FlannBasedMatcher matcher;
+	for (int i = 0; i < (images.size() - 1); i++)
+	{
+		for (int j = i + 1; j < images.size(); j++)
+		{
+			vector <DMatch> tmp_matches;
+			matcher.match(images[i].getDescriptors(), images[j].getDescriptors(), tmp_matches);
+			Match tmp(tmp_matches, images[i].getID(), images[j].getID());
+			matches.push_back(tmp);
+		}
+	}
+
+	// Find the best matches between two images
+	for (int i = 0; i < matches.size(); i++)
+	{
+		vector <DMatch> tmp_matches;
+		Mat tmp_descriptors;
+		tmp_matches = matches[i].getMatches();
+		int imgIdx1 = matches[i].getImgIdx1();
+		int imgIdx2 = matches[i].getImgIdx2();
+		tmp_descriptors = images[imgIdx1].getDescriptors().clone();
+
+		// Calculation of minimum distance between keypoints
+		double max_dist = 0; double min_dist = 100;
+		for (int j = 0; j < tmp_descriptors.rows; j++)
+		{
+			double dist = tmp_matches[j].distance;
+			if (dist < min_dist) min_dist = dist;
+			if (dist > max_dist) max_dist = dist;
+		}
+
+		// Select only "good" matches
+		vector< DMatch > tmp_good_matches;
+		for (int j = 0; j < tmp_descriptors.rows; j++)
+		{
+			if (tmp_matches[j].distance <= max(2 * min_dist, 0.02))
+			{
+				tmp_good_matches.push_back(tmp_matches[j]);
+			}
+		}
+		matches[i].setGood_Matches(tmp_good_matches);
+
+		// Draw only "good" matches
+		Mat tmp_img_matches;
+		drawMatches(images[imgIdx1].getImg_gray(), images[imgIdx1].getKeypoints(), images[imgIdx2].getImg_gray(), images[imgIdx2].getKeypoints(),
+			matches[i].getGood_Matches(), tmp_img_matches, Scalar::all(-1), Scalar::all(-1),
+			vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+		matches[i].setImg_matches(tmp_img_matches);
+
+		// Store img_matches
+		String str = "images/SIFT_matches2/";
+		str.append("Images_");
+		str.append(to_string(imgIdx1));
+		str.append("-");
+		str.append(to_string(imgIdx2));
+		str.append("_Keypoints_matched_");
+		str.append(to_string(matches[i].getGood_Matches().size()));
+		str.append(".jpg");
+		imwrite(str, tmp_img_matches);
+	}
+}

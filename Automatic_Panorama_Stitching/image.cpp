@@ -13,7 +13,7 @@ using namespace std;
 // Constructor
 Image::Image(Mat imgval)
 {
-	id = ++idGen;
+	id = idGen++;
 	img = imgval.clone();
 	cvtColor(imgval, img_gray, CV_BGR2GRAY);
 	img_keypoint = NULL;
@@ -95,7 +95,7 @@ Mat Image::getDescriptors() const
 }
 
 // Change index
-void Image::setIndex(int idxVal)
+void Image::setIndex(vector <int> idxVal)
 {
 	if (index.size() < 6)
 	{
@@ -108,9 +108,16 @@ void Image::setIndex(int idxVal)
 		sort(index.begin(), index.end());
 	}
 }
-vector <int> Image::getIndex() const // Returns the index
+vector <vector <int>> Image::getIndex() const // Returns the index
 {
 	return index;
+}
+
+vector <int> Image::getIndex(int posVal) const // Returns the one rwo of index
+{
+	vector <int> error;
+	error.push_back(NAN);
+	return ((0 <= posVal) && (posVal < 6) ? index[posVal] : error);
 }
 
 // Print colour image in a window
