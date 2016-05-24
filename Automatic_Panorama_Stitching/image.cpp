@@ -116,7 +116,7 @@ vector <vector <int>> Image::getIndex() const // Returns the index
 vector <int> Image::getIndex(int posVal) const // Returns the one rwo of index
 {
 	vector <int> error;
-	error.push_back(NAN);
+	error.push_back(NULL);
 	return ((0 <= posVal) && (posVal < 6) ? index[posVal] : error);
 }
 
