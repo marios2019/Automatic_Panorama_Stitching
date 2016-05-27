@@ -1,12 +1,17 @@
 #include <opencv2/core/core.hpp> // Mat
 #include <opencv2/imgproc/imgproc.hpp> // cvtColor
 #include <opencv2/highgui/highgui.hpp> // imshow, namedWindow
+#include "opencv2/opencv_modules.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/stitching/detail/camera.hpp"
+#include "opencv2/stitching/detail/matchers.hpp"
 #include <vector>
 #include <string>
 #include <algorithm>
 
 using namespace cv;
 using namespace std;
+using namespace cv::detail;
 
 #include "image.h"
 
@@ -17,7 +22,6 @@ Image::Image(Mat imgval)
 	img = imgval.clone();
 	cvtColor(imgval, img_gray, CV_BGR2GRAY);
 	img_keypoint = NULL;
-	descriptors = NULL;
 }
 
 int Image::idGen = 0; // Initialize idGen
@@ -58,18 +62,18 @@ Mat Image::getImg_gray() const
 	return img_gray;
 }
 
-// Change keypoints
-void Image::setKeypoints(vector <KeyPoint> keypointsVal)
+void Image::setImageFeatures(vector <KeyPoint> keypointsVal, Mat descriptorsVal) // Change ImageFeatures
 {
-	keypoints = keypointsVal;
-} 
-
-// Returns the keypoints
-vector <KeyPoint> Image::getKeypoints() const
-{
-	return keypoints;
+	features.keypoints = keypointsVal;
+	features.descriptors = descriptorsVal.clone();
+	features.img_idx = getID();
+	features.img_size = getImg().size();
 }
 
+ImageFeatures Image::getImageFeatures() const // Returns ImageFeatures
+{
+	return features;
+}
 // Change img_keypoint
 void Image::setImg_Keypoint(Mat img_keypointVal)
 {
@@ -82,42 +86,16 @@ Mat Image::getImg_Keypoint() const
 	return img_keypoint;
 }
 
-// Change descriptor
-void Image::setDescriptors(Mat descriptorVal)
+// Change intrinsics
+void Image::setIntrinsics(CameraParams intrinsicsVal)
 {
-	descriptors = descriptorVal.clone();
+	intrinsics = intrinsicsVal;
 }
 
-// Returns the descriptor
-Mat Image::getDescriptors() const
+// Returns the intrinsics
+CameraParams Image::getIntrinsics() const
 {
-	return descriptors;
-}
-
-// Change index
-void Image::setIndex(vector <int> idxVal)
-{
-	if (index.size() < 6)
-	{
-		index.push_back(idxVal);
-	}
-	else
-	{
-		index.pop_back();
-		index.push_back(idxVal);
-		sort(index.begin(), index.end());
-	}
-}
-vector <vector <int>> Image::getIndex() const // Returns the index
-{
-	return index;
-}
-
-vector <int> Image::getIndex(int posVal) const // Returns the one rwo of index
-{
-	vector <int> error;
-	error.push_back(NULL);
-	return ((0 <= posVal) && (posVal < 6) ? index[posVal] : error);
+	return intrinsics;
 }
 
 // Print colour image in a window

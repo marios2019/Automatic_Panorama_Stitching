@@ -1,9 +1,13 @@
 #pragma once
 #include <vector>
 #include <opencv2/core/core.hpp> // Mat
-#include "opencv2/features2d/features2d.hpp" // KeyPoint
+#include "opencv2/opencv_modules.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/stitching/detail/camera.hpp"
+#include "opencv2/stitching/detail/matchers.hpp"
 
 using namespace cv;
+using namespace cv::detail;
 
 class Image
 {
@@ -19,19 +23,15 @@ public:
 
 	Mat getImg_gray() const; // Returns the img_gray
 
-	void setKeypoints(vector <KeyPoint>); // Change keypoints
-	vector <KeyPoint> getKeypoints() const; // Returns the keypoints
+	void setImageFeatures(vector <KeyPoint>, Mat); // Change ImageFeatures
+	ImageFeatures getImageFeatures() const; // Returns ImageFeatures
 
 	void setImg_Keypoint(Mat); // Change img_keypoint
 	Mat getImg_Keypoint() const; // Returns the img_keypoint
 
-	void setDescriptors(Mat); // Change descriptors
-	Mat getDescriptors() const; // Returns the descriptors
-
-	void setIndex(vector <int>); // Change index
-	vector <vector <int>> getIndex() const; // Returns the index
-	vector <int> getIndex(int) const; // Returns the one rwo of index
-
+	void setIntrinsics(CameraParams); // Change intrinsics
+	CameraParams getIntrinsics() const; // Returns the intrinsics
+	
 	void print_img(Mat) const; // Print colour image in a window
 
 private:
@@ -41,12 +41,9 @@ private:
 	int id; // image id
 	Mat img; // input image
 	Mat img_gray; // input image in grayscale
-	//pt: array of keypoint coordinates, size: keypoint diameter, angle: keypoint orientation, 
-	//responce: keypoint strength, octave:	pyramid octave in which the keypoint has been detected
-	vector <KeyPoint> keypoints; // keypoints extracted by SIFT algorithm
+	ImageFeatures features; // features produced by SIFT
 	Mat img_keypoint; // image with keypoints drawn
-	Mat descriptors; // descriptor
-	vector <vector <int>> index; //contains indexes to the 6 best matching images to the current image
+	CameraParams intrinsics; // estimation of intrinsic calibration matrix
 
 	static int idGen; // image ID generator
 };
