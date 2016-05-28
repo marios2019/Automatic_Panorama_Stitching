@@ -223,7 +223,7 @@ int main(int argc, char** argv)
 	// Warp images and their masks
 
 	Ptr<WarperCreator> warper_creator;
-	string warp_type = "spherical";
+	string warp_type = "cylindrical";
 	
 	if (warp_type == "plane") warper_creator = new cv::PlaneWarper();
 	else if (warp_type == "cylindrical") warper_creator = new cv::CylindricalWarper();
@@ -335,13 +335,11 @@ int main(int argc, char** argv)
 				sizes[i] = roi.size();
 			}
 		}
-		//if (abs(compose_scale - 1) > 1e-1)
-		//	resize(full_img, img, Size(), compose_scale, compose_scale);
-		//else
-		//	img = full_img;
-		//full_img.release();
-		//Size img_size = img.size();
-
+		if (abs(compose_scale - 1) > 1e-1)
+			resize(images[i].getImg(), images_scale[i], Size(), compose_scale, compose_scale);
+		else
+			images_scale[i] = images[i].getImg();
+		
 		Mat K;
 		images[i].getIntrinsics().K().convertTo(K, CV_32F);
 
@@ -349,7 +347,7 @@ int main(int argc, char** argv)
 		warper->warp(images[i].getImg(), K, images[i].getIntrinsics().R, INTER_LINEAR, BORDER_REFLECT, img_warped);
 
 		// Warp the current image mask
-		mask.create(images[i].getImg().size(), CV_8U);
+		mask.create(images_scale[i].size(), CV_8U);
 		mask.setTo(Scalar::all(255));
 		warper->warp(mask, K, images[i].getIntrinsics().R, INTER_NEAREST, BORDER_CONSTANT, mask_warped);
 
@@ -432,9 +430,9 @@ Mat hist_equalize(Mat input_image)
 void det_desc_features(vector <Image>& images, bool flag)
 {
 	// Detect the keypoints using SIFT Detector
-	SurfFeatureDetector detector;
+	SiftFeatureDetector detector(1000, 4, 0.04, 5, 1.7);
 	// Calculate descriptors (feature vectors)
-	SurfDescriptorExtractor extractor;
+	SiftDescriptorExtractor extractor;
 
 	for (size_t i = 0; i < images.size(); i++)
 	{
