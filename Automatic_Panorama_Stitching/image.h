@@ -31,7 +31,7 @@ public:
 
 	void setIntrinsics(CameraParams); // Change intrinsics
 	CameraParams getIntrinsics() const; // Returns the intrinsics
-	
+
 	void print_img(Mat) const; // Print colour image in a window
 
 private:

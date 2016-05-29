@@ -40,10 +40,16 @@ bool do_wave_correct = true;
 WaveCorrectKind wave_type = WAVE_CORRECT_HORIZ;
 string warp_type = "spherical";
 int expos_comp_type = ExposureCompensator::GAIN_BLOCKS;
-float match_conf = 0.3f;
-string seam_find_type = "gc_color";
+float match_conf = 0.65f;
+string seam_find_type = "dp_colorgrad";
 int blend_type = Blender::MULTI_BAND;
 float blend_strength = 5;
+bool hist = 0;
+int nfeatures = 5000; 
+int nOctaveLayers = 4; 
+double contrastThreshold = 0.04;
+double edgeThreshold = 3; 
+double sigma = 1.7;
 string result_name = "result.jpg";
 
 // Global Histogram Equalization
@@ -51,11 +57,11 @@ Mat hist_equalize(Mat);
 // Feature Detection
 void det_desc_features(vector <Image>&, bool);
 // Feature matching
-void match_features(vector <MatchesInfo>&, vector <Image>, bool, float);
+void match_features(vector <MatchesInfo>&, vector <Image>, bool);
 // Reject noise images which match to no other images
-bool imageValidate(vector <MatchesInfo>, vector <Image>&, vector <Mat>&, float);
+bool imageValidate(vector <MatchesInfo>, vector <Image>&, vector <Mat>&);
 // Estimate homography and bundle adjustemnt
-vector <double> homogr_ba(vector <Image>&, vector <MatchesInfo>, float);
+vector <double> homogr_ba(vector <Image>&, vector <MatchesInfo>);
 // Wave correction
 void wave_correct(vector <Image>&);
 
@@ -64,7 +70,6 @@ int main(int argc, char** argv)
 	// Program initialization
 	clock_t timerOverall;
 	timerOverall = clock();
-	bool hist = 0;
 	string input;
 	vector <Image> images;
 	vector <Mat> images_scale;
@@ -72,8 +77,7 @@ int main(int argc, char** argv)
 	bool is_work_scale_set = false, is_seam_scale_set = false, is_compose_scale_set = false;
 	double seam_work_aspect = 1;
 	double compose_work_aspect = 1;
-	string result_name = "result.jpg";
-	
+
 	if (argc < 2)
 	{
 		cout << "No input images file provided." << endl;
@@ -90,7 +94,7 @@ int main(int argc, char** argv)
 		cout << "make sure it's not empty: ";
 		system("PAUSE");
 		return (0);
-	}					 
+	}
 
 	// Extract image paths line by line
 	string str;
@@ -130,7 +134,7 @@ int main(int argc, char** argv)
 			seam_work_aspect = seam_scale / work_scale;
 			is_seam_scale_set = true;
 		}
-		
+
 		Mat tmp;
 		resize(tmp_img.getImg(), tmp, Size(), seam_scale, seam_scale);
 		images_scale.push_back(tmp);
@@ -143,11 +147,11 @@ int main(int argc, char** argv)
 		for (int i = 0; i < images.size(); i++)
 			images[i].setImg(hist_equalize(images[i].getImg()));
 	}
-	
+
 	// Feature Detection and Descirption
 	// Timing 
 	clock_t timerFDD;
-	timerFDD = clock();	
+	timerFDD = clock();
 	cout << "Feature Detection and Descirption..." << endl;
 	det_desc_features(images, hist);
 	//show_image(images, CV_8UC3, "Keypoints");
@@ -161,16 +165,14 @@ int main(int argc, char** argv)
 	timerFM = clock();
 	vector <MatchesInfo> pairwise_matches;
 	cout << "Pairwise image matching..." << endl;
-	float match_conf = 0.65f;
-	match_features(pairwise_matches, images, hist, match_conf);
+	match_features(pairwise_matches, images, hist);
 	timerFM = clock() - timerFM;
 	cout << "Pairwise image matching time: " << ((float)timerFM / CLOCKS_PER_SEC) << " seconds." << endl;
 	cout << endl;
 
 	// Reject noise images which match to no other images
 	cout << "Reject noise images which match to no other images..." << endl;
-	float conf_thresh = 1.f;
-	bool flag = imageValidate(pairwise_matches, images, images_scale, conf_thresh);
+	bool flag = imageValidate(pairwise_matches, images, images_scale);
 	if (flag)
 	{
 		system("PAUSE");
@@ -188,11 +190,11 @@ int main(int argc, char** argv)
 	timerHBA = clock();
 	cout << "Estimating Homography and bundle adjust camera intrinsics..." << endl;
 	vector <double> focals;
-	focals = homogr_ba(images, pairwise_matches, conf_thresh);
+	focals = homogr_ba(images, pairwise_matches);
 	timerHBA = clock() - timerHBA;
 	cout << "Estimating Homography and bundle adjust camera intrinsics time: " << ((float)timerHBA / CLOCKS_PER_SEC) << " seconds." << endl;
 	cout << endl;
-	
+
 	// Find median focal length
 	sort(focals.begin(), focals.end());
 	float warped_image_scale;
@@ -203,15 +205,16 @@ int main(int argc, char** argv)
 
 	// Wave correction
 	wave_correct(images);
-////////
 
+	// Warping images
+	clock_t timerWarp;
+	timerWarp = clock();
 	cout << "Warping images (auxiliary)... " << endl;
-
-	vector<Point> corners(images.size());
-	vector<Mat> masks_warped(images.size());
-	vector<Mat> images_warped(images.size());
+	vector<Point> corners(images.size()); // top left corner of image
+	vector<Mat> masks_warped(images.size()); // mask for warping
+	vector<Mat> images_warped(images.size()); // warped images used in gain conmpesation
 	vector<Size> sizes(images.size());
-	vector<Mat> masks(images.size());
+	vector<Mat> masks(images.size()); // used to create masks_warped
 
 	// Preapre images masks
 	for (int i = 0; i < images.size(); ++i)
@@ -221,10 +224,9 @@ int main(int argc, char** argv)
 	}
 
 	// Warp images and their masks
-
 	Ptr<WarperCreator> warper_creator;
-	string warp_type = "cylindrical";
-	
+
+	// Warping type
 	if (warp_type == "plane") warper_creator = new cv::PlaneWarper();
 	else if (warp_type == "cylindrical") warper_creator = new cv::CylindricalWarper();
 	else if (warp_type == "spherical") warper_creator = new cv::SphericalWarper();
@@ -232,11 +234,11 @@ int main(int argc, char** argv)
 	if (warper_creator.empty())
 	{
 		cout << "Can't create the following warper '" << warp_type << "'\n";
-		return 1;
+		return (0);
 	}
 
+	// Find corners and estimate masks_warped
 	Ptr<RotationWarper> warper = warper_creator->create(static_cast<float>(warped_image_scale * seam_work_aspect));
-
 	for (int i = 0; i < images.size(); ++i)
 	{
 		Mat_<float> K;
@@ -252,12 +254,18 @@ int main(int argc, char** argv)
 	}
 
 	vector<Mat> images_warped_f(images.size());
-	for (int i = 0; i < images.size(); ++i)
+	for (size_t i = 0; i < images.size(); ++i)
+	{
 		images_warped[i].convertTo(images_warped_f[i], CV_32F);
+	}
+	timerWarp = clock() - timerWarp;
+	cout << "Image warping time: " << ((float)timerWarp / CLOCKS_PER_SEC) << " seconds." << endl;
 
+	// Gain compensation
 	Ptr<ExposureCompensator> compensator = ExposureCompensator::createDefault(expos_comp_type);
 	compensator->feed(corners, images_warped, masks_warped);
 
+	// Seam estimation type
 	Ptr<SeamFinder> seam_finder;
 	if (seam_find_type == "no")
 		seam_finder = new detail::NoSeamFinder();
@@ -265,11 +273,11 @@ int main(int argc, char** argv)
 		seam_finder = new detail::VoronoiSeamFinder();
 	else if (seam_find_type == "gc_color")
 	{
-			seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR);
+		seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR);
 	}
 	else if (seam_find_type == "gc_colorgrad")
 	{
-			seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR_GRAD);
+		seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR_GRAD);
 	}
 	else if (seam_find_type == "dp_color")
 		seam_finder = new detail::DpSeamFinder(DpSeamFinder::COLOR);
@@ -278,9 +286,10 @@ int main(int argc, char** argv)
 	if (seam_finder.empty())
 	{
 		cout << "Can't create the following seam finder '" << seam_find_type << "'\n";
-		return 1;
+		return (0);
 	}
 
+	// Find seams between images
 	seam_finder->find(images_warped_f, corners, masks_warped);
 
 	// Release unused memory
@@ -288,13 +297,14 @@ int main(int argc, char** argv)
 	images_warped_f.clear();
 	masks.clear();
 
+	// Compose panorama
+	clock_t timerCompose;
+	timerCompose = clock();
 	cout << "Compositing..." << endl;
-
 	Mat img_warped, img_warped_s;
 	Mat dilated_mask, seam_mask, mask, mask_warped;
 	Ptr<Blender> blender;
-
-	for (int  i = 0; i < images.size(); i++)
+	for (size_t i = 0; i < images.size(); i++)
 	{
 		cout << "Compositing image #" << images[i].getID() << endl;
 
@@ -336,10 +346,14 @@ int main(int argc, char** argv)
 			}
 		}
 		if (abs(compose_scale - 1) > 1e-1)
+		{
 			resize(images[i].getImg(), images_scale[i], Size(), compose_scale, compose_scale);
+		}
 		else
+		{
 			images_scale[i] = images[i].getImg();
-		
+		}			
+
 		Mat K;
 		images[i].getIntrinsics().K().convertTo(K, CV_32F);
 
@@ -352,7 +366,7 @@ int main(int argc, char** argv)
 		warper->warp(mask, K, images[i].getIntrinsics().R, INTER_NEAREST, BORDER_CONSTANT, mask_warped);
 
 		// Compensate exposure
-		compensator->apply(i, corners[i], img_warped, mask_warped);
+		compensator->apply(static_cast <int> (i), corners[i], img_warped, mask_warped);
 
 		img_warped.convertTo(img_warped_s, CV_16S);
 		img_warped.release();
@@ -362,13 +376,16 @@ int main(int argc, char** argv)
 		resize(dilated_mask, seam_mask, mask_warped.size());
 		mask_warped = seam_mask & mask_warped;
 
+		// Blender type
 		if (blender.empty())
 		{
 			blender = Blender::createDefault(blend_type, false);
 			Size dst_sz = resultRoi(corners, sizes).size();
 			float blend_width = sqrt(static_cast<float>(dst_sz.area())) * blend_strength / 100.f;
 			if (blend_width < 1.f)
+			{
 				blender = Blender::createDefault(Blender::NO, false);
+			}
 			else if (blend_type == Blender::MULTI_BAND)
 			{
 				MultiBandBlender* mb = dynamic_cast<MultiBandBlender*>(static_cast<Blender*>(blender));
@@ -390,6 +407,8 @@ int main(int argc, char** argv)
 
 	Mat result, result_mask;
 	blender->blend(result, result_mask);
+	timerCompose = clock() - timerCompose;
+	cout << "Image compose time: " << ((float)timerCompose / CLOCKS_PER_SEC) << " seconds." << endl;
 
 	imwrite(result_name, result);
 
@@ -421,7 +440,7 @@ Mat hist_equalize(Mat input_image)
 
 		return result;
 	}
-		
+
 	cout << "The image has to be consist by at least 3 channels." << endl;
 	return input_image;
 }
@@ -430,9 +449,13 @@ Mat hist_equalize(Mat input_image)
 void det_desc_features(vector <Image>& images, bool flag)
 {
 	// Detect the keypoints using SIFT Detector
-	SiftFeatureDetector detector(1000, 4, 0.04, 5, 1.7);
+	SiftFeatureDetector detector(nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma);
 	// Calculate descriptors (feature vectors)
 	SiftDescriptorExtractor extractor;
+	//// Detect the keypoints using SIFT Detector
+	//SurfFeatureDetector detector(500);
+	//// Calculate descriptors (feature vectors)
+	//SurfDescriptorExtractor extractor;
 
 	for (size_t i = 0; i < images.size(); i++)
 	{
@@ -457,7 +480,7 @@ void det_desc_features(vector <Image>& images, bool flag)
 		string str;
 		if (flag == 0)
 		{
-			str = "images/SIFT_Keypoints/Original_Image/";			
+			str = "images/SIFT_Keypoints/Original_Image/";
 		}
 		else
 		{
@@ -473,7 +496,7 @@ void det_desc_features(vector <Image>& images, bool flag)
 }
 
 // Feature Matching
-void match_features(vector <MatchesInfo> &pairwise_matches, vector <Image> images, bool flag, float match_conf)
+void match_features(vector <MatchesInfo> &pairwise_matches, vector <Image> images, bool flag)
 {
 	// Get ImageFeatures
 	vector <ImageFeatures> features;
@@ -481,7 +504,7 @@ void match_features(vector <MatchesInfo> &pairwise_matches, vector <Image> image
 	{
 		features.push_back(images[i].getImageFeatures());
 	}
-	
+
 	// Timing 
 	clock_t timerMatch;
 	timerMatch = clock();
@@ -527,14 +550,14 @@ void match_features(vector <MatchesInfo> &pairwise_matches, vector <Image> image
 }
 
 // Reject noise images which match to no other images
-bool imageValidate(vector <MatchesInfo> pairwise_matches, vector <Image> &images, vector <Mat> &images_scale, float conf_thresh)
+bool imageValidate(vector <MatchesInfo> pairwise_matches, vector <Image> &images, vector <Mat> &images_scale)
 {
 	vector <ImageFeatures> features;
 	for (int i = 0; i < images.size(); i++)
 	{
 		features.push_back(images[i].getImageFeatures());
 	}
-		
+
 	// Leave only images we are sure are from the same panorama
 	vector <int> indices = leaveBiggestComponent(features, pairwise_matches, conf_thresh);
 	vector <Image> tmp_images;
@@ -561,7 +584,7 @@ bool imageValidate(vector <MatchesInfo> pairwise_matches, vector <Image> &images
 }
 
 // Estimate homography and bundle adjustemnt
-vector <double> homogr_ba(vector <Image> &images, vector <MatchesInfo> pairwise_matches, float conf_thresh)
+vector <double> homogr_ba(vector <Image> &images, vector <MatchesInfo> pairwise_matches)
 {
 	vector <ImageFeatures> features;
 	for (size_t i = 0; i < images.size(); i++)
@@ -582,7 +605,7 @@ vector <double> homogr_ba(vector <Image> &images, vector <MatchesInfo> pairwise_
 	}
 
 	// Bundle adjustement
-    BundleAdjusterReproj adjuster;
+	BundleAdjusterReproj adjuster;
 	adjuster.setConfThresh(conf_thresh);
 	Mat_<uchar> refine_mask = Mat::zeros(3, 3, CV_8U);
 	if (ba_refine_mask[0] == 'x') refine_mask(0, 0) = 1;
