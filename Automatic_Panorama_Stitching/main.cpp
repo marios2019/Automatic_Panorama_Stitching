@@ -40,16 +40,16 @@ bool do_wave_correct = true;
 WaveCorrectKind wave_type = WAVE_CORRECT_HORIZ;
 string warp_type = "spherical";
 int expos_comp_type = ExposureCompensator::GAIN_BLOCKS;
-float match_conf = 0.65f;
+float match_conf = 0.3f;
 string seam_find_type = "dp_colorgrad";
 int blend_type = Blender::MULTI_BAND;
 float blend_strength = 5;
 bool hist = 0;
-int nfeatures = 5000; 
-int nOctaveLayers = 4; 
+int nfeatures = 1000; 
+int nOctaveLayers = 3; 
 double contrastThreshold = 0.04;
-double edgeThreshold = 3; 
-double sigma = 1.7;
+double edgeThreshold = 3;
+double sigma = 1.6;
 string result_name = "result.jpg";
 
 // Global Histogram Equalization
@@ -59,7 +59,7 @@ void det_desc_features(vector <Image>&, bool);
 // Feature matching
 void match_features(vector <MatchesInfo>&, vector <Image>, bool);
 // Reject noise images which match to no other images
-bool imageValidate(vector <MatchesInfo>, vector <Image>&, vector <Mat>&);
+bool imageValidate(vector <MatchesInfo>&, vector <Image>&, vector <Mat>&);
 // Estimate homography and bundle adjustemnt
 vector <double> homogr_ba(vector <Image>&, vector <MatchesInfo>);
 // Wave correction
@@ -415,6 +415,8 @@ int main(int argc, char** argv)
 	timerOverall = clock() - timerOverall;
 	cout << "Overall time: " << ((float)timerOverall / CLOCKS_PER_SEC) << " seconds." << endl;
 
+	images.clear();
+
 	system("PAUSE");
 	return(0);
 }
@@ -505,13 +507,8 @@ void match_features(vector <MatchesInfo> &pairwise_matches, vector <Image> image
 		features.push_back(images[i].getImageFeatures());
 	}
 
-	// Timing 
-	clock_t timerMatch;
-	timerMatch = clock();
 	BestOf2NearestMatcher matcher(false, match_conf);
 	matcher(features, pairwise_matches);
-	timerMatch = clock() - timerMatch;
-	cout << "Pairwise Matching: " << ((float)timerMatch / CLOCKS_PER_SEC) << " seconds." << endl;
 	matcher.collectGarbage();
 
 	for (size_t i = 0; i < pairwise_matches.size(); i++)
@@ -550,7 +547,7 @@ void match_features(vector <MatchesInfo> &pairwise_matches, vector <Image> image
 }
 
 // Reject noise images which match to no other images
-bool imageValidate(vector <MatchesInfo> pairwise_matches, vector <Image> &images, vector <Mat> &images_scale)
+bool imageValidate(vector <MatchesInfo> &pairwise_matches, vector <Image> &images, vector <Mat> &images_scale)
 {
 	vector <ImageFeatures> features;
 	for (int i = 0; i < images.size(); i++)
