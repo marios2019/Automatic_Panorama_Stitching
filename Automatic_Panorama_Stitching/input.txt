@@ -1,4 +1,7 @@
-images/1.jpg
-images/2.jpg
-images/3.jpg
-images/4.jpg
+images/1_img.jpg
+images/2_img.jpg
+images/3_img.jpg
+images/4_img.jpg
+images/5_img.jpg
+images/6_img.jpg
+images/7_img.jpg

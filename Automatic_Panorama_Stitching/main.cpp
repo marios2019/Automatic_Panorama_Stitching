@@ -45,10 +45,10 @@ string seam_find_type = "dp_colorgrad";
 int blend_type = Blender::MULTI_BAND;
 float blend_strength = 5;
 bool hist = 0;
-int nfeatures = 1000; 
+int nfeatures = 5000; 
 int nOctaveLayers = 3; 
 double contrastThreshold = 0.04;
-double edgeThreshold = 3;
+double edgeThreshold = 10;
 double sigma = 1.6;
 string result_name = "result.jpg";
 
@@ -461,6 +461,12 @@ void det_desc_features(vector <Image>& images, bool flag)
 
 	for (size_t i = 0; i < images.size(); i++)
 	{
+	/*	Mat mask = Mat::zeros(images[i].getImg_gray().size(), images[i].getImg_gray().type());
+		Mat roi1(mask, cv::Rect(images[i].getImg_gray().cols - 60, 0, images[i].getImg_gray().cols - (images[i].getImg_gray().cols - 60), images[i].getImg_gray().rows));
+		roi1 = Scalar(255);
+		Mat roi2(mask, cv::Rect(0, 0, 60, images[i].getImg_gray().rows));
+		roi2 = Scalar(255);*/
+
 		// Feature Detection
 		vector <KeyPoint> tmp_keypoints;
 		detector.detect(images[i].getImg_gray(), tmp_keypoints);
